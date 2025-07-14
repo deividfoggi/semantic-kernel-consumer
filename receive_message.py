@@ -2,7 +2,7 @@ import os
 import time
 import asyncio
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
-from essay_evaluator import EssayEvaluator
+from prompt_processor import PromptProcessor
 
 # Set these as environment variables for security
 SERVICE_BUS_CONNECTION_STR = os.getenv('SERVICE_BUS_CONNECTION_STR')
@@ -12,16 +12,16 @@ BATCH_SIZE = 10  # Number of messages to receive in a batch
 if not SERVICE_BUS_CONNECTION_STR or not QUEUE_NAME:
     raise ValueError("Please set SERVICE_BUS_CONNECTION_STR and SERVICE_BUS_QUEUE_NAME environment variables.")
 
-def process_message(message, model_name, api_key, endpoint, prompt_path):
+def process_message(message, model_name, api_key, endpoint):
     try:
         content = message.body_as_str()
     except AttributeError:
         content = b''.join(message.body).decode('utf-8', errors='replace')
     print(f"Processing message: {content}")
 
-    # Create a new KernelWrapper and EssayEvaluator for each message
-    essay_evaluator = EssayEvaluator(model_name, api_key, endpoint)
-    result = asyncio.run(essay_evaluator.evaluate_essay(content, prompt_path))
+    # Create a new KernelWrapper and PromptProcessor for each message
+    prompt_processor = PromptProcessor(model_name, api_key, endpoint)
+    result = asyncio.run(prompt_processor.process_payload(content))
     print(f"Evaluation result: {result}")
 
 
@@ -29,7 +29,6 @@ def run_service_bus_processor():
     model_name = os.getenv('OPENAI_MODEL_NAME', 'gpt-3.5-turbo')
     api_key = os.getenv('OPENAI_API_KEY', 'your-api-key')
     endpoint = os.getenv('OPENAI_ENDPOINT')
-    prompt_path = os.getenv('PROMPT_TEMPLATE_PATH', 'prompt_templates/essay.yaml')
     with ServiceBusClient.from_connection_string(SERVICE_BUS_CONNECTION_STR) as client:
         receiver = client.get_queue_receiver(queue_name=QUEUE_NAME)
         with receiver:
@@ -41,7 +40,7 @@ def run_service_bus_processor():
                     continue
                 for msg in messages:
                     try:
-                        process_message(msg, model_name, api_key, endpoint, prompt_path)
+                        process_message(msg, model_name, api_key, endpoint)
                         receiver.complete_message(msg)
                     except Exception as e:
                         print(f"Failed to process message: {e}")
