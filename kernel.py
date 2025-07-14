@@ -11,6 +11,7 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
+
 class AIProviderBase:
     def add_to_kernel(self, kernel: Kernel):
         raise NotImplementedError("Implement in subclass")
