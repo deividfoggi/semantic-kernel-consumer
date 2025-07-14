@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import logging
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from prompt_processor import PromptProcessor
 
@@ -12,17 +13,26 @@ BATCH_SIZE = 10  # Number of messages to receive in a batch
 if not SERVICE_BUS_CONNECTION_STR or not QUEUE_NAME:
     raise ValueError("Please set SERVICE_BUS_CONNECTION_STR and SERVICE_BUS_QUEUE_NAME environment variables.")
 
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
 def process_message(message, model_name, api_key, endpoint):
     try:
         content = message.body_as_str()
     except AttributeError:
         content = b''.join(message.body).decode('utf-8', errors='replace')
-    print(f"Processing message: {content}")
+    logger.info(f"Processing message: {content}")
 
     # Create a new KernelWrapper and PromptProcessor for each message
     prompt_processor = PromptProcessor(model_name, api_key, endpoint)
     result = asyncio.run(prompt_processor.process_payload(content))
-    print(f"Evaluation result: {result}")
+    logger.info(f"Evaluation result: {result}")
 
 
 def run_service_bus_processor():
@@ -43,5 +53,5 @@ def run_service_bus_processor():
                         process_message(msg, model_name, api_key, endpoint)
                         receiver.complete_message(msg)
                     except Exception as e:
-                        print(f"Failed to process message: {e}")
+                        logger.error(f"Failed to process message: {e}")
                         receiver.abandon_message(msg)

@@ -1,9 +1,19 @@
 import os
 import yaml
+import logging
 from semantic_kernel.functions import KernelArguments
 from semantic_kernel.prompt_template import PromptTemplateConfig, HandlebarsPromptTemplate
 from kernel import KernelWrapper, AzureOpenAIProvider
 from blob_client import AzureBlobTemplateClient  # Import the blob client
+
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
 
 class PromptProcessor:
     def __init__(self, deployment_name: str, api_key: str, endpoint: str = None):
