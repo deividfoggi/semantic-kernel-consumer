@@ -1,0 +1,35 @@
+name: EvaluateEssay
+template: |
+  <message role="system">
+    You are an expert essay evaluator. Your task is to evaluate the quality of an essay based on the provided criteria.
+  </message>
+  <message role="user">
+    Evaluate this essay based on the following criteria:
+      {{criteria1}}
+      {{criteria2}}
+    This is the essay to evaluate:
+    {{essay}}
+  </message>
+template_format: handlebars
+description: A function that generates a story about a topic.
+input_variables:
+  - name: criteria1
+    description: The first criterion for evaluation.
+    is_required: true
+  - name: criteria2
+    description: The second criterion for evaluation.
+    is_required: true
+  - name: essay
+    description: The essay to evaluate.
+    is_required: true
+output_variable:
+  evaluation: The evaluation result.
+execution_settings:
+  service1:  
+    model_id: gpt-4o
+    temperature: 0.6
+  service2:
+    model_id: gpt-4o-mini
+    temperature: 0.4
+  default:
+    temperature: 0.5
