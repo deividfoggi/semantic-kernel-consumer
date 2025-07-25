@@ -68,11 +68,8 @@ template: |
 template_format: handlebars
 description: A function that generates a story about a topic.
 input_variables:
-  - name: criteria1
-    description: The first criterion for evaluation.
-    is_required: true
-  - name: criteria2
-    description: The second criterion for evaluation.
+  - name: skills_list
+    description: The list of skills.
     is_required: true
   - name: essay
     description: The essay to evaluate.
