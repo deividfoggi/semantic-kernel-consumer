@@ -54,9 +54,14 @@ template: |
     You are an expert essay evaluator. Your task is to evaluate the quality of an essay based on the provided criteria.
   </message>
   <message role="user">
-    Evaluate this essay based on the following criteria:
-      {{criteria1}}
-      {{criteria2}}
+    Evaluate the following essay based on each of the skills provided:
+      {{ skills_list }}
+    For each skill, provide a result in the format:
+    {
+      "skill": "<skill_name>",
+      "comments": "<evaluation_result>",
+      "result"
+    }
     This is the essay to evaluate:
     {{essay}}
   </message>
