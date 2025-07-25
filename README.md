@@ -66,7 +66,7 @@ template: |
     {{essay}}
   </message>
 template_format: handlebars
-description: A function that generates a story about a topic.
+description: An essay evaluation prompt.
 input_variables:
   - name: skills_list
     description: The list of skills.
