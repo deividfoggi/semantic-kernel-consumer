@@ -32,7 +32,23 @@ if __name__ == "__main__":
     payload = {
         "id": str(uuid.uuid4()),
         "essay": "The Brazil has been discovered by Pedro Alvares Cabral in 1500. It is a country with a rich history and diverse culture. It is known for its beautiful landscapes, vibrant cities, and passionate people.",
-        "skills_list": ["coesao", "vocabulario", "ortografia"]
+        "skills_list": [
+            {
+                "name": "coesao",
+                "description": "Avalia a coesão textual do ensaio.",
+                "score": "1 a 10"
+            },
+            {
+                "name": "vocabulario",
+                "description": "Avalia o uso do vocabulário no ensaio.",
+                "score": "1 a 10"
+            },
+            {
+                "name": "ortografia",
+                "description": "Avalia a ortografia utilizada no ensaio.",
+                "score": "1 a 10"
+            }
+        ]
     }
     test_message = json.dumps(payload)
     send_message_to_queue(test_message)
