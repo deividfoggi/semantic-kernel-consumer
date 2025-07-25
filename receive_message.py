@@ -4,6 +4,7 @@ import asyncio
 import logging
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from prompt_processor import PromptProcessor
+import json
 
 # Set these as environment variables for security
 SERVICE_BUS_CONNECTION_STR = os.getenv('SERVICE_BUS_CONNECTION_STR')
@@ -24,10 +25,11 @@ logger.addHandler(console_handler)
 
 def process_message(message, model_name, api_key, endpoint):
     try:
-        content = message.body_as_str()
-    except AttributeError:
-        content = b''.join(message.body).decode('utf-8', errors='replace')
-    logger.info(f"Processing message: {content}")
+        body_bytes = b"".join(message.body)
+        content = json.loads(body_bytes.decode('utf-8'))
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to decode JSON message: {e}")
+        return
 
     # Create a new KernelWrapper and PromptProcessor for each message
     prompt_processor = PromptProcessor(model_name, api_key, endpoint)

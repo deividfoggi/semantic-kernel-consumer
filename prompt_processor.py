@@ -1,6 +1,7 @@
 import os
 import yaml
 import logging
+import json
 from semantic_kernel.functions import KernelArguments
 from semantic_kernel.prompt_template import PromptTemplateConfig, HandlebarsPromptTemplate
 from kernel import KernelWrapper, AzureOpenAIProvider
@@ -21,12 +22,17 @@ class PromptProcessor:
         provider = AzureOpenAIProvider(deployment_name, api_key, endpoint)
         self.kernel = KernelWrapper(provider).kernel
 
-    async def process_payload(self, payload: str) -> str:
+    async def process_payload(self, payload) -> str:
+        # payload is now a JSON object (dict or str)
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        skills_list = payload.get("skills_list", [])
+        essay = payload.get("essay", "")
         # Fetch template from Azure Blob Storage using environment variables
         blob_client = AzureBlobTemplateClient()
         yaml_content = blob_client.get_template()
 
-        arguments = KernelArguments(criteria1="conciseness", criteria2="relevance", essay=payload)
+        arguments = KernelArguments(skills_list=skills_list, essay=essay)
 
         semantic_function = self.kernel.add_function(
             prompt=yaml_content,

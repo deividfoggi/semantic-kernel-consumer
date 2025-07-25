@@ -28,5 +28,11 @@ def send_message_to_queue(message_body):
             logger.info(f"Sent message: {message_body}")
 
 if __name__ == "__main__":
-    test_message = "In 1500, Portuguese explorer Pedro Álvares Cabral discovered Brazil while sailing to India, ahahahahah. He landed on the coast, claiming the land for Portugal. This marked the beginning of European colonization in South America, shaping Brazil’s culture, language, and history through centuries of exploration, trade, and transformation."
+    # a json payload to be sent to the queue
+    payload = {
+        "id": str(uuid.uuid4()),
+        "essay": "The Brazil has been discovered by Pedro Alvares Cabral in 1500. It is a country with a rich history and diverse culture. It is known for its beautiful landscapes, vibrant cities, and passionate people.",
+        "skills_list": ["coesao", "vocabulario", "ortografia"]
+    }
+    test_message = json.dumps(payload)
     send_message_to_queue(test_message)
