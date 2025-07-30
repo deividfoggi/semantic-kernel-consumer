@@ -6,6 +6,7 @@ from semantic_kernel.functions import KernelArguments
 from semantic_kernel.prompt_template import PromptTemplateConfig, HandlebarsPromptTemplate
 from kernel import KernelWrapper, AzureOpenAIProvider
 from blob_client import AzureBlobTemplateClient  # Import the blob client
+from post_evaluation import PostEvaluation  # Import the post evaluation class
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -32,13 +33,20 @@ class PromptProcessor:
         blob_client = AzureBlobTemplateClient()
         yaml_content = blob_client.get_template()
 
+        post_evaluation_function = PostEvaluation()
+        self.kernel.add_function(
+            post_evaluation_function.run_evaluation,
+            plugin_name="PostEvaluationTask",
+            function_name="run_evaluation"
+        )
+
         arguments = KernelArguments(skills_list=skills_list, essay=essay)
 
         semantic_function = self.kernel.add_function(
             prompt=yaml_content,
             plugin_name="EssayEvaluator",
             function_name="EvaluateEssay",
-            template_format="handlebars"
+            template_format="handlebars",
         )
 
         response = await self.kernel.invoke(semantic_function, arguments)

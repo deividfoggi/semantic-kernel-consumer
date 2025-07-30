@@ -1,5 +1,5 @@
 import logging
-from receive_message import run_service_bus_processor
+from consumer import run_service_bus_processor
 
 # Configure logging
 logger = logging.getLogger(__name__)

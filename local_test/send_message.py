@@ -3,6 +3,9 @@ import json
 import uuid
 import logging
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SERVICE_BUS_CONNECTION_STR = os.getenv('SERVICE_BUS_CONNECTION_STR')
 QUEUE_NAME = os.getenv('SERVICE_BUS_QUEUE_NAME')
