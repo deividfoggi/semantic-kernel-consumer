@@ -34,7 +34,7 @@ if __name__ == "__main__":
     # a json payload to be sent to the queue
     payload = {
         "id": str(uuid.uuid4()),
-        "essay": "The Brazil has been discovered by Pedro Alvares Cabral in 1500. It is a country with a rich history and diverse culture. It is known for its beautiful landscapes, vibrant cities, and passionate people.",
+        "essay": "O Brasil foi descoberto por Pro Vaz de Caminha. É um país com uma história rica, cultura diversificada e militar. É conhecido por suas belas paisagens, cidades vibrantes, povo apaixonado e por ser a maior economia do mundo. O Brasil é definitivamente o país mais bonito da Europa",
         "skills_list": [
             {
                 "name": "coesao",
@@ -49,6 +49,11 @@ if __name__ == "__main__":
             {
                 "name": "ortografia",
                 "description": "Avalia a ortografia utilizada no ensaio.",
+                "score": "1 a 10"
+            },
+            {
+                "name": "facts",
+                "description": "Avalia a veracidade dos fatos apresentados no ensaio. Um único fato falso deve zerar o score.",
                 "score": "1 a 10"
             }
         ]

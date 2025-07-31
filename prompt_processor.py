@@ -3,10 +3,11 @@ import yaml
 import logging
 import json
 from semantic_kernel.functions import KernelArguments
-from semantic_kernel.prompt_template import PromptTemplateConfig, HandlebarsPromptTemplate
+from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
+from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
 from kernel import KernelWrapper, AzureOpenAIProvider
-from blob_client import AzureBlobTemplateClient  # Import the blob client
-from post_evaluation import PostEvaluation  # Import the post evaluation class
+from blob_client import AzureBlobTemplateClient
+from post_evaluation import PostEvaluation
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -22,31 +23,50 @@ class PromptProcessor:
         # Cria uma nova instância do kernel para cada evaluator
         provider = AzureOpenAIProvider(deployment_name, api_key, endpoint)
         self.kernel = KernelWrapper(provider).kernel
+        
+        # Register the PostEvaluation plugin
+        self._register_plugins()
+
+    def _register_plugins(self):
+        """Register all plugins that can be called from prompts."""
+
+        self.kernel.add_plugin(
+            PostEvaluation(), "PostEvaluationPlugin"
+        )
+        logger.info("PostEvaluation plugin registered successfully")
 
     async def process_payload(self, payload) -> str:
         # payload is now a JSON object (dict or str)
         if isinstance(payload, str):
             payload = json.loads(payload)
+        
         skills_list = payload.get("skills_list", [])
         essay = payload.get("essay", "")
-        # Fetch template from Azure Blob Storage using environment variables
+        
+        # Fetch template from Azure Blob Storage
         blob_client = AzureBlobTemplateClient()
         yaml_content = blob_client.get_template()
+        
+        # Parse the YAML to get the template and execution settings
+        template_config = yaml.safe_load(yaml_content)
+        template_text = template_config["template"]
 
-        post_evaluation_function = PostEvaluation()
-        self.kernel.add_function(
-            post_evaluation_function.run_evaluation,
-            plugin_name="PostEvaluationTask",
-            function_name="run_evaluation"
+        
+        # Create function directly from template text
+        semantic_function = self.kernel.add_function(
+            function_name="evaluate_essay",
+            plugin_name="EvaluateEssayPlugin",
+            prompt=yaml_content,
+            template_format="handlebars"
         )
 
-        arguments = KernelArguments(skills_list=skills_list, essay=essay)
-
-        semantic_function = self.kernel.add_function(
-            prompt=yaml_content,
-            plugin_name="EssayEvaluator",
-            function_name="EvaluateEssay",
-            template_format="handlebars",
+        # Convert skills_list to JSON string for the function call
+        skills_json = json.dumps(skills_list) if isinstance(skills_list, list) else str(skills_list)
+        
+        arguments = KernelArguments(
+            settings=PromptExecutionSettings(function_choice_behavior=FunctionChoiceBehavior.Auto()),
+            skills_list=skills_json,
+            essay=essay
         )
 
         response = await self.kernel.invoke(semantic_function, arguments)

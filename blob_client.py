@@ -66,9 +66,9 @@ class AzureBlobTemplateClient:
                 raise ValueError("Template blob name must be provided either as an argument or via PROMPT_TEMPLATE_BLOB_NAME environment variable.")
         try:
             blob_client = self.container_client.get_blob_client(blob_name)
-            blob_data = blob_client.download_blob().readall()
+            blob_data = blob_client.download_blob().content_as_text(encoding='utf-8')
             logger.info(f"Successfully downloaded blob: {blob_name}")
-            return blob_data.decode('utf-8')
+            return blob_data
         except ResourceNotFoundError:
             logger.error(f"Blob not found: {blob_name}")
             raise FileNotFoundError(f"Template blob '{blob_name}' not found.")
