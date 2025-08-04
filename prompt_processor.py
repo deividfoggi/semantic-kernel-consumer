@@ -5,10 +5,9 @@ import json
 from semantic_kernel.functions import KernelArguments
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
-from kernel import KernelWrapper, AzureOpenAIProvider
+from kernel import ProviderType, KernelFactory
 from blob_client import AzureBlobTemplateClient
 from post_evaluation import PostEvaluation
-from semantic_kernel.connectors.ai.azure_ai_inference import AzureAIInferenceChatCompletion
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -20,18 +19,20 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 class PromptProcessor:
-    def __init__(self, deployment_name: str, api_key: str, endpoint: str = None):
-        # Cria uma nova instância do kernel para cada evaluator
-        #provider = AzureOpenAIProvider(deployment_name, api_key, endpoint)
-        provider = AzureAIInferenceChatCompletion(ai_model_id=deployment_name, api_key=api_key)
-        self.kernel = KernelWrapper(provider).kernel
+    def __init__(self, deployment_name: str, api_key: str, endpoint: str = None, provider_type: str = "azure_openai"):
+        # Create kernel directly without complex provider injection
+        self.kernel = KernelFactory.create_kernel(
+            ProviderType["AZURE_AI_INFERENCE"],
+            deployment_name=deployment_name,
+            api_key=api_key,
+            endpoint=endpoint
+        )
         
         # Register the PostEvaluation plugin
         self._register_plugins()
 
     def _register_plugins(self):
         """Register all plugins that can be called from prompts."""
-
         self.kernel.add_plugin(
             PostEvaluation(), "PostEvaluationPlugin"
         )
