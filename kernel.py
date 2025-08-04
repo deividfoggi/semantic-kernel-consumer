@@ -1,5 +1,6 @@
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
+from semantic_kernel.connectors.ai.azure_ai_inference import AzureAIInferenceChatCompletion
 import logging
 
 # Configure logging
@@ -24,6 +25,21 @@ class AzureOpenAIProvider(AIProviderBase):
 
     def add_to_kernel(self, kernel: Kernel):
         chat_completion = AzureChatCompletion(
+            deployment_name=self.deployment_name,
+            api_key=self.api_key,
+            endpoint=self.endpoint
+        )
+        kernel.add_service(chat_completion)
+        return kernel
+
+class AzureAIInferenceProvider(AIProviderBase):
+    def __init__(self, deployment_name, api_key, endpoint=None):
+        self.deployment_name = deployment_name
+        self.api_key = api_key
+        self.endpoint = endpoint
+
+    def add_to_kernel(self, kernel: Kernel):
+        chat_completion = AzureAIInferenceChatCompletion(
             deployment_name=self.deployment_name,
             api_key=self.api_key,
             endpoint=self.endpoint

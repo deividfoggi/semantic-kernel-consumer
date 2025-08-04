@@ -1,10 +1,14 @@
 import os
 import time
+import dotenv
 import asyncio
 import logging
 from azure.servicebus import ServiceBusMessage
 from azure.servicebus.aio import ServiceBusClient as AsyncServiceBusClient
 from prompt_processor import PromptProcessor
+
+dotenv.load_dotenv()
+
 import json
 
 # Set these as environment variables for security

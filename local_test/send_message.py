@@ -52,7 +52,7 @@ if __name__ == "__main__":
                 "score": "1 a 10"
             },
             {
-                "name": "facts",
+                "name": "fatos",
                 "description": "Avalia a veracidade dos fatos apresentados no ensaio. Um único fato falso deve zerar o score.",
                 "score": "1 a 10"
             }

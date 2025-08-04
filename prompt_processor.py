@@ -8,6 +8,7 @@ from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoic
 from kernel import KernelWrapper, AzureOpenAIProvider
 from blob_client import AzureBlobTemplateClient
 from post_evaluation import PostEvaluation
+from semantic_kernel.connectors.ai.azure_ai_inference import AzureAIInferenceChatCompletion
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -21,7 +22,8 @@ logger.addHandler(console_handler)
 class PromptProcessor:
     def __init__(self, deployment_name: str, api_key: str, endpoint: str = None):
         # Cria uma nova instância do kernel para cada evaluator
-        provider = AzureOpenAIProvider(deployment_name, api_key, endpoint)
+        #provider = AzureOpenAIProvider(deployment_name, api_key, endpoint)
+        provider = AzureAIInferenceChatCompletion(ai_model_id=deployment_name, api_key=api_key)
         self.kernel = KernelWrapper(provider).kernel
         
         # Register the PostEvaluation plugin
