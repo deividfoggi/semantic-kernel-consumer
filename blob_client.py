@@ -1,13 +1,10 @@
-"""
-blob_client.py
-
-A utility module for securely retrieving prompt templates from Azure Blob Storage.
-Follows Azure SDK and Python best practices: managed identity, error handling, logging, and configuration.
-"""
 import os
 import logging
 from azure.storage.blob import BlobServiceClient
 from azure.core.exceptions import ResourceNotFoundError, AzureError
+import dotenv
+
+dotenv.load_dotenv()
 
 # Configure logging
 logger = logging.getLogger(__name__)
