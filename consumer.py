@@ -71,7 +71,7 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
 
 async def run_service_bus_processor_async():
     model_name = os.getenv('OPENAI_MODEL_NAME', 'gpt-3.5-turbo')
-    api_key = os.getenv('OPENAI_API_KEY', 'your-api-key')
+    api_key = os.getenv('AI_API_KEY', 'your-api-key')
     endpoint = os.getenv('OPENAI_ENDPOINT')
     retry_count = 0
     max_retries = 3
