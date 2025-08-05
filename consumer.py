@@ -97,6 +97,46 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
         logger.error(f"Failed to process message: {processing_error}")
         await safe_abandon_message(receiver, message)
 
+async def cleanup_completed_tasks(tasks):
+    """
+    Clean up completed tasks and handle their results/exceptions.
+    Returns the updated task set with completed tasks removed.
+    """
+    if not tasks:
+        return tasks
+    
+    # Get completed tasks without waiting
+    done, pending = await asyncio.wait(tasks, timeout=0, return_when=asyncio.ALL_COMPLETED)
+    
+    # Handle results/exceptions from completed tasks
+    for task in done:
+        try:
+            # This will raise an exception if the task failed
+            await task
+        except Exception as task_error:
+            logger.error(f"Task completed with error: {task_error}")
+    
+    return pending
+
+async def wait_for_available_slot(tasks, max_concurrent_tasks):
+    """
+    Wait for at least one task to complete when we hit the concurrency limit.
+    Returns the updated task set with completed tasks cleaned up.
+    """
+    if len(tasks) < max_concurrent_tasks:
+        return tasks
+    
+    # Wait for at least one task to complete
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    
+    # Handle results/exceptions from completed tasks
+    for task in done:
+        try:
+            await task
+        except Exception as task_error:
+            logger.error(f"Task completed with error: {task_error}")
+    
+    return pending
 
 async def run_service_bus_processor_async():
     # Use validated environment variables
@@ -119,23 +159,35 @@ async def run_service_bus_processor_async():
                     logger.info("Service Bus consumer started successfully (async)")
                     retry_count = 0
                     tasks = set()
+                    
                     while True:
                         try:
                             messages = await receiver.receive_messages(max_message_count=BATCH_SIZE, max_wait_time=5)
                             if not messages:
                                 await asyncio.sleep(2)
+                                # Clean up any completed tasks during idle time
+                                tasks = await cleanup_completed_tasks(tasks)
                                 continue
+                            
                             for msg in messages:
-                                # Limit concurrency
-                                while len(tasks) >= max_concurrent_tasks:
-                                    _done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                                task = asyncio.create_task(process_message_async(msg, receiver, model_name, api_key, endpoint, api_version))
+                                # Wait for available slot if we're at the limit
+                                tasks = await wait_for_available_slot(tasks, max_concurrent_tasks)
+                                
+                                # Create new task for message processing
+                                task = asyncio.create_task(
+                                    process_message_async(msg, receiver, model_name, api_key, endpoint, api_version)
+                                )
                                 tasks.add(task)
-                            # Clean up finished tasks
-                            done, tasks = await asyncio.wait(tasks, timeout=0, return_when=asyncio.ALL_COMPLETED)
+                            
+                            # Clean up completed tasks after processing batch
+                            tasks = await cleanup_completed_tasks(tasks)
+                            
                         except Exception as receive_error:
                             logger.error(f"Error receiving messages: {receive_error}")
                             await asyncio.sleep(5)
+                            # Clean up tasks during error recovery
+                            tasks = await cleanup_completed_tasks(tasks)
+                            
         except Exception as connection_error:
             retry_count += 1
             logger.error(f"Service Bus connection failed (attempt {retry_count}/{max_retries + 1}): {connection_error}")
