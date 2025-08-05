@@ -35,7 +35,7 @@ Set the following environment variables before running the project:
 - `PROMPT_TEMPLATE_BLOB_NAME` (Blob name for the prompt template)
 - `SERVICE_BUS_CONNECTION_STR` (Service Bus connection string)
 - `SERVICE_BUS_QUEUE_NAME` (Service Bus queue name)
-- `OPENAI_MODEL_NAME` (OpenAI model deployment name)
+- `AI_MODEL_NAME` (OpenAI model deployment name)
 - `AI_API_KEY` (OpenAI API key)
 - `AI_ENDPOINT` (OpenAI endpoint, if required)
 

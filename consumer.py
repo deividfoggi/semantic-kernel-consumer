@@ -70,7 +70,7 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
 
 
 async def run_service_bus_processor_async():
-    model_name = os.getenv('OPENAI_MODEL_NAME')
+    model_name = os.getenv('AI_MODEL_NAME')
     api_key = os.getenv('AI_API_KEY')
     endpoint = os.getenv('AI_ENDPOINT')
     api_version = os.getenv('API_VERSION')
