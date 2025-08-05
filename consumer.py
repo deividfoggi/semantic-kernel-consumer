@@ -57,27 +57,27 @@ except ValueError as e:
     logger.critical(f"Environment validation failed: {e}")
     raise
 
-def safe_abandon_message(receiver, message):
+async def safe_abandon_message(receiver, message):
     """
     Safely abandon a message with proper exception handling.
     Ensures the consumer continues working even if abandon fails.
     """
     try:
-        asyncio.create_task(receiver.abandon_message(message))
+        await receiver.abandon_message(message)
         logger.info("Message abandoned successfully")
     except Exception as abandon_error:
         logger.error(f"Failed to abandon message (this won't stop the consumer): {abandon_error}")
 
-def safe_complete_message(receiver, message):
+async def safe_complete_message(receiver, message):
     """
     Safely complete a message with proper exception handling.
     """
     try:
-        asyncio.create_task(receiver.complete_message(message))
+        await receiver.complete_message(message)
         logger.info("Message completed successfully")
     except Exception as complete_error:
         logger.error(f"Failed to complete message: {complete_error}")
-        safe_abandon_message(receiver, message)
+        await safe_abandon_message(receiver, message)
 
 async def process_message_async(message, receiver, model_name, api_key, endpoint, api_version):
     try:
@@ -85,17 +85,17 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
         content = json.loads(body_bytes.decode('utf-8'))
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode JSON message: {e}")
-        await receiver.abandon_message(message)
+        await safe_abandon_message(receiver, message)
         return
 
-    prompt_processor = PromptProcessor(model_name, api_key, endpoint, api_version)
     try:
+        prompt_processor = PromptProcessor(model_name, api_key, endpoint, api_version)
         result = await prompt_processor.process_payload(content)
         logger.info(f"Evaluation result: {result}")
-        await receiver.complete_message(message)
+        await safe_complete_message(receiver, message)
     except Exception as processing_error:
         logger.error(f"Failed to process message: {processing_error}")
-        await receiver.abandon_message(message)
+        await safe_abandon_message(receiver, message)
 
 
 async def run_service_bus_processor_async():
