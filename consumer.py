@@ -11,15 +11,7 @@ dotenv.load_dotenv()
 
 import json
 
-# Set these as environment variables for security
-SERVICE_BUS_CONNECTION_STR = os.getenv('SERVICE_BUS_CONNECTION_STR')
-QUEUE_NAME = os.getenv('SERVICE_BUS_QUEUE_NAME')
-BATCH_SIZE = 10  # Number of messages to receive in a batch
-
-if not SERVICE_BUS_CONNECTION_STR or not QUEUE_NAME:
-    raise ValueError("Please set SERVICE_BUS_CONNECTION_STR and SERVICE_BUS_QUEUE_NAME environment variables.")
-
-# Configure logging
+# Configure logging FIRST, before any other operations
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 console_handler = logging.StreamHandler()
@@ -27,6 +19,43 @@ console_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
+
+# Set these as environment variables for security
+SERVICE_BUS_CONNECTION_STR = os.getenv('SERVICE_BUS_CONNECTION_STR')
+QUEUE_NAME = os.getenv('SERVICE_BUS_QUEUE_NAME')
+BATCH_SIZE = 10  # Number of messages to receive in a batch
+
+def validate_environment_variables():
+    """
+    Validate all required environment variables at startup.
+    Raises ValueError with clear message if any variables are missing.
+    """
+    required_vars = {
+        'SERVICE_BUS_CONNECTION_STR': SERVICE_BUS_CONNECTION_STR,
+        'SERVICE_BUS_QUEUE_NAME': QUEUE_NAME,
+        'AI_MODEL_NAME': os.getenv('AI_MODEL_NAME'),
+        'AI_API_KEY': os.getenv('AI_API_KEY'),
+        'AI_ENDPOINT': os.getenv('AI_ENDPOINT'),
+        'API_VERSION': os.getenv('API_VERSION')
+    }
+    
+    missing_vars = [var_name for var_name, var_value in required_vars.items() if not var_value]
+    
+    if missing_vars:
+        error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+        logger.critical(error_msg)
+        logger.critical("Please ensure all required environment variables are set before starting the application.")
+        raise ValueError(error_msg)
+    
+    logger.info("All required environment variables are present")
+    return {var_name: var_value for var_name, var_value in required_vars.items()}
+
+# Validate environment variables at startup
+try:
+    env_vars = validate_environment_variables()
+except ValueError as e:
+    logger.critical(f"Environment validation failed: {e}")
+    raise
 
 def safe_abandon_message(receiver, message):
     """
@@ -70,13 +99,17 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
 
 
 async def run_service_bus_processor_async():
-    model_name = os.getenv('AI_MODEL_NAME')
-    api_key = os.getenv('AI_API_KEY')
-    endpoint = os.getenv('AI_ENDPOINT')
-    api_version = os.getenv('API_VERSION')
+    # Use validated environment variables
+    model_name = env_vars['AI_MODEL_NAME']
+    api_key = env_vars['AI_API_KEY']
+    endpoint = env_vars['AI_ENDPOINT']
+    api_version = env_vars['API_VERSION']
+    
     retry_count = 0
     max_retries = 3
     max_concurrent_tasks = 10
+    
+    logger.info(f"Starting Service Bus processor with model: {model_name}")
     
     while retry_count <= max_retries:
         try:
