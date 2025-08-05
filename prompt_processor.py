@@ -59,7 +59,7 @@ class PromptProcessor:
         # Create function directly from template text
         semantic_function = self.kernel.add_function(
             function_name="evaluate_essay",
-            plugin_name="EvaluateEssayPlugin",
+            plugin_name="evaluate_essay",
             prompt=yaml_content,
             template_format="handlebars"
         )

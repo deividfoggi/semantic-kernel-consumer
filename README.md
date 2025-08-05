@@ -37,7 +37,7 @@ Set the following environment variables before running the project:
 - `SERVICE_BUS_QUEUE_NAME` (Service Bus queue name)
 - `OPENAI_MODEL_NAME` (OpenAI model deployment name)
 - `AI_API_KEY` (OpenAI API key)
-- `OPENAI_ENDPOINT` (OpenAI endpoint, if required)
+- `AI_ENDPOINT` (OpenAI endpoint, if required)
 
 ## Usage
 
