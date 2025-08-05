@@ -1,2 +1,3 @@
 semantic-kernel>=1.34.0
 semantic-kernel[azure]
+azure-ai-inference

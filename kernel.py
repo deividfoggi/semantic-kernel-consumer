@@ -1,6 +1,8 @@
 from semantic_kernel import Kernel
 from semantic_kernel.connectors.ai.open_ai import AzureChatCompletion
 from semantic_kernel.connectors.ai.azure_ai_inference import AzureAIInferenceChatCompletion
+from azure.ai.inference.aio import ChatCompletionsClient
+from azure.core.credentials import AzureKeyCredential
 import logging
 from enum import Enum
 
@@ -19,7 +21,7 @@ class ProviderType(Enum):
 
 class KernelFactory:
     @staticmethod
-    def create_kernel(provider_type: ProviderType, deployment_name: str, api_key: str, endpoint: str = None) -> Kernel:
+    def create_kernel(provider_type: ProviderType, deployment_name: str, api_key: str, endpoint: str = None, api_version: str = None) -> Kernel:
         """Create a kernel with the specified AI provider."""
         kernel = Kernel()
         
@@ -33,12 +35,16 @@ class KernelFactory:
             logger.info(f"Created kernel with Azure OpenAI provider: {deployment_name}")
             
         elif provider_type == ProviderType.AZURE_AI_INFERENCE:
-            chat_completion = AzureAIInferenceChatCompletion(
-                ai_model_id=deployment_name,
-                api_key=api_key,
-                endpoint=endpoint
+            chat_completion_client = ChatCompletionsClient(
+                endpoint=endpoint,
+                credential=AzureKeyCredential(api_key),
+                api_version=api_version
             )
-            kernel.add_service(chat_completion)
+            chat_completion_service = AzureAIInferenceChatCompletion(
+                ai_model_id=deployment_name,
+                client=chat_completion_client
+            )
+            kernel.add_service(chat_completion_service)
             logger.info(f"Created kernel with Azure AI Inference provider: {deployment_name}")
             
         else:

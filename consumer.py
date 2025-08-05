@@ -50,7 +50,7 @@ def safe_complete_message(receiver, message):
         logger.error(f"Failed to complete message: {complete_error}")
         safe_abandon_message(receiver, message)
 
-async def process_message_async(message, receiver, model_name, api_key, endpoint):
+async def process_message_async(message, receiver, model_name, api_key, endpoint, api_version):
     try:
         body_bytes = b"".join(message.body)
         content = json.loads(body_bytes.decode('utf-8'))
@@ -59,7 +59,7 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
         await receiver.abandon_message(message)
         return
 
-    prompt_processor = PromptProcessor(model_name, api_key, endpoint)
+    prompt_processor = PromptProcessor(model_name, api_key, endpoint, api_version)
     try:
         result = await prompt_processor.process_payload(content)
         logger.info(f"Evaluation result: {result}")
@@ -70,9 +70,10 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
 
 
 async def run_service_bus_processor_async():
-    model_name = os.getenv('OPENAI_MODEL_NAME', 'gpt-3.5-turbo')
-    api_key = os.getenv('AI_API_KEY', 'your-api-key')
+    model_name = os.getenv('OPENAI_MODEL_NAME')
+    api_key = os.getenv('AI_API_KEY')
     endpoint = os.getenv('OPENAI_ENDPOINT')
+    api_version = os.getenv('API_VERSION')
     retry_count = 0
     max_retries = 3
     max_concurrent_tasks = 10
@@ -95,7 +96,7 @@ async def run_service_bus_processor_async():
                                 # Limit concurrency
                                 while len(tasks) >= max_concurrent_tasks:
                                     _done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-                                task = asyncio.create_task(process_message_async(msg, receiver, model_name, api_key, endpoint))
+                                task = asyncio.create_task(process_message_async(msg, receiver, model_name, api_key, endpoint, api_version))
                                 tasks.add(task)
                             # Clean up finished tasks
                             done, tasks = await asyncio.wait(tasks, timeout=0, return_when=asyncio.ALL_COMPLETED)

@@ -19,13 +19,14 @@ console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
 class PromptProcessor:
-    def __init__(self, deployment_name: str, api_key: str, endpoint: str = None, provider_type: str = "azure_openai"):
+    def __init__(self, deployment_name: str, api_key: str, endpoint: str = None, api_version: str = None, provider_type: str = "azure_openai"):
         # Create kernel directly without complex provider injection
         self.kernel = KernelFactory.create_kernel(
             ProviderType["AZURE_AI_INFERENCE"],
             deployment_name=deployment_name,
             api_key=api_key,
-            endpoint=endpoint
+            endpoint=endpoint,
+            api_version=api_version
         )
         
         # Register the PostEvaluation plugin
