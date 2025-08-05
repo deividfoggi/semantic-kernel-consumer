@@ -35,14 +35,15 @@ class KernelFactory:
             logger.info(f"Created kernel with Azure OpenAI provider: {deployment_name}")
             
         elif provider_type == ProviderType.AZURE_AI_INFERENCE:
-            chat_completion_client = ChatCompletionsClient(
-                endpoint=endpoint,
-                credential=AzureKeyCredential(api_key),
-                api_version=api_version
-            )
+            # chat_completion_client = ChatCompletionsClient(
+            #     endpoint=endpoint,
+            #     credential=AzureKeyCredential(api_key),
+            #     api_version=api_version
+            # )
             chat_completion_service = AzureAIInferenceChatCompletion(
                 ai_model_id=deployment_name,
-                client=chat_completion_client
+                api_key= api_key,
+                endpoint=endpoint
             )
             kernel.add_service(chat_completion_service)
             logger.info(f"Created kernel with Azure AI Inference provider: {deployment_name}")
