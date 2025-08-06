@@ -25,6 +25,9 @@ from consumer import (
     shutdown_event
 )
 
+# Enable async testing
+pytest_plugins = ('pytest_asyncio',)
+
 
 class TestEnvironmentValidation:
     """Test suite for environment variable validation."""

@@ -17,6 +17,14 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
+# Import DefaultAzureCredential at module level for proper mocking in tests
+try:
+    from azure.identity import DefaultAzureCredential
+    _default_credential_available = True
+except ImportError:
+    DefaultAzureCredential = None
+    _default_credential_available = False
+
 class AzureBlobTemplateClient:
     """
     Client for retrieving prompt templates from Azure Blob Storage.
@@ -24,31 +32,47 @@ class AzureBlobTemplateClient:
     or managed identity when deployed to Azure.
     Container name can be provided as an argument or via PROMPT_TEMPLATE_CONTAINER_NAME env var.
     """
-    def __init__(self, container_name: str = None):
-        # Allow container name from env var if not provided
+    def __init__(self, account_name: str = None, container_name: str = None):
+        # Get container name from argument or environment
         if container_name is None:
             container_name = os.getenv("PROMPT_TEMPLATE_CONTAINER_NAME")
-            if not container_name:
-                logger.error("PROMPT_TEMPLATE_CONTAINER_NAME environment variable is not set and no container_name was provided.")
-                raise ValueError("Container name must be provided either as an argument or via PROMPT_TEMPLATE_CONTAINER_NAME environment variable.")
-        # Use connection string from env for local dev, otherwise use default creds
-        conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        if conn_str:
-            self.blob_service_client = BlobServiceClient.from_connection_string(conn_str)
-            logger.info("Using connection string for Azure Blob Storage authentication.")
+        if not container_name:
+            raise ValueError("Container name must be provided either as an argument or via PROMPT_TEMPLATE_CONTAINER_NAME environment variable.")
+        
+        self.container_name = container_name
+        self.blob_service_client = None
+        self.container_client = None
+        
+        # Get connection string from environment
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        
+        if connection_string:
+            # Use connection string for local development
+            logger.info("Using Azure Storage connection string")
+            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            self.container_client = self.blob_service_client.get_container_client(self.container_name)
         else:
-            # Use DefaultAzureCredential for managed identity (requires azure-identity)
+            # Use managed identity for production
+            account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
+            if account_url is None and account_name is not None:
+                account_url = f"https://{account_name}.blob.core.windows.net"
+            
+            if account_url is None:
+                raise ValueError("Account URL must be provided via AZURE_STORAGE_ACCOUNT_URL environment variable or account_name parameter when not using connection string authentication.")
+            
+            logger.info("Using Azure managed identity")
+            if not _default_credential_available:
+                logger.error("Azure identity library not available. Please install azure-identity package.")
+                raise ImportError("azure-identity package is required for managed identity authentication")
+            
             try:
-                from azure.identity import DefaultAzureCredential
-                self.blob_service_client = BlobServiceClient(
-                    account_url=os.environ["AZURE_STORAGE_ACCOUNT_URL"],
-                    credential=DefaultAzureCredential()
-                )
-                logger.info("Using managed identity for Azure Blob Storage authentication.")
+                credential = DefaultAzureCredential()
+                self.blob_service_client = BlobServiceClient(account_url=account_url, credential=credential)
+                self.container_client = self.blob_service_client.get_container_client(self.container_name)
+                self.account_name = account_name
             except Exception as e:
-                logger.error("Failed to authenticate to Azure Blob Storage: %s", e)
+                logger.error(f"Failed to authenticate with managed identity: {e}")
                 raise
-        self.container_client = self.blob_service_client.get_container_client(container_name)
 
     def get_template(self, blob_name: str = None) -> str:
         """

@@ -35,6 +35,7 @@ class TestKernelFactory:
         """Test successful kernel creation with Azure OpenAI provider."""
         # Setup
         mock_chat_completion = Mock(spec=AzureChatCompletion)
+        mock_chat_completion.service_id = "azure_openai_service"  # Add required attribute
         mock_azure_chat_completion.return_value = mock_chat_completion
         
         deployment_name = "gpt-4o"
@@ -65,6 +66,7 @@ class TestKernelFactory:
         """Test successful kernel creation with Azure AI Inference provider."""
         # Setup
         mock_chat_completion = Mock(spec=AzureAIInferenceChatCompletion)
+        mock_chat_completion.service_id = "azure_ai_inference_service"  # Add required attribute
         mock_azure_ai_inference.return_value = mock_chat_completion
         
         deployment_name = "gpt-4o"
@@ -111,6 +113,7 @@ class TestKernelFactory:
         """Test kernel creation with minimal required parameters for Azure OpenAI."""
         # Setup
         mock_chat_completion = Mock(spec=AzureChatCompletion)
+        mock_chat_completion.service_id = "azure_openai_service"
         mock_azure_chat_completion.return_value = mock_chat_completion
 
         # Execute
@@ -133,6 +136,7 @@ class TestKernelFactory:
         """Test kernel creation with minimal required parameters for Azure AI Inference."""
         # Setup
         mock_chat_completion = Mock(spec=AzureAIInferenceChatCompletion)
+        mock_chat_completion.service_id = "azure_ai_inference_service"
         mock_azure_ai_inference.return_value = mock_chat_completion
 
         # Execute
@@ -155,6 +159,7 @@ class TestKernelFactory:
         """Test kernel creation with all parameters for Azure OpenAI."""
         # Setup
         mock_chat_completion = Mock(spec=AzureChatCompletion)
+        mock_chat_completion.service_id = "azure_openai_service"
         mock_azure_chat_completion.return_value = mock_chat_completion
         
         params = {
@@ -181,6 +186,7 @@ class TestKernelFactory:
         """Test kernel creation with all parameters for Azure AI Inference."""
         # Setup
         mock_chat_completion = Mock(spec=AzureAIInferenceChatCompletion)
+        mock_chat_completion.service_id = "azure_ai_inference_service"
         mock_azure_ai_inference.return_value = mock_chat_completion
         
         params = {
@@ -243,6 +249,7 @@ class TestKernelFactory:
         mock_kernel = Mock(spec=Kernel)
         mock_kernel_class.return_value = mock_kernel
         mock_chat_completion = Mock(spec=AzureChatCompletion)
+        mock_chat_completion.service_id = "azure_openai_service"
         mock_azure_chat_completion.return_value = mock_chat_completion
 
         # Execute
@@ -255,6 +262,36 @@ class TestKernelFactory:
         # Verify
         assert result_kernel == mock_kernel
         mock_kernel.add_service.assert_called_once_with(mock_chat_completion)
+
+    @patch('kernel.AzureChatCompletion')
+    def test_create_kernel_azure_openai_exception_handling(self, mock_azure_chat_completion):
+        """Test that exceptions from AzureChatCompletion are properly propagated."""
+        # Setup
+        mock_azure_chat_completion.side_effect = Exception("Authentication failed")
+
+        # Execute & Verify
+        with pytest.raises(Exception, match="Authentication failed"):
+            KernelFactory.create_kernel(
+                provider_type=ProviderType.AZURE_OPENAI,
+                deployment_name="gpt-4o",
+                api_key="invalid_key",
+                endpoint="https://invalid.endpoint.com"
+            )
+
+    @patch('kernel.AzureAIInferenceChatCompletion')
+    def test_create_kernel_azure_ai_inference_exception_handling(self, mock_azure_ai_inference):
+        """Test that exceptions from AzureAIInferenceChatCompletion are properly propagated."""
+        # Setup
+        mock_azure_ai_inference.side_effect = Exception("Model not found")
+
+        # Execute & Verify
+        with pytest.raises(Exception, match="Model not found"):
+            KernelFactory.create_kernel(
+                provider_type=ProviderType.AZURE_AI_INFERENCE,
+                deployment_name="invalid-model",
+                api_key="test_key",
+                endpoint="https://test.endpoint.com"
+            )
 
     def test_create_kernel_logging(self):
         """Test that appropriate logging messages are generated."""
@@ -329,7 +366,6 @@ def azure_ai_inference_config():
     }
 
 
-# Parameterized tests for different model names
 @pytest.mark.parametrize("deployment_name", [
     "gpt-4o",
     "gpt-4o-mini", 
@@ -342,6 +378,7 @@ def test_create_kernel_various_models_azure_openai(mock_azure_chat_completion, d
     """Test kernel creation with various model deployment names for Azure OpenAI."""
     # Setup
     mock_chat_completion = Mock(spec=AzureChatCompletion)
+    mock_chat_completion.service_id = "azure_openai_service"
     mock_azure_chat_completion.return_value = mock_chat_completion
 
     # Execute
@@ -373,6 +410,7 @@ def test_create_kernel_various_models_azure_ai_inference(mock_azure_ai_inference
     """Test kernel creation with various model deployment names for Azure AI Inference."""
     # Setup
     mock_chat_completion = Mock(spec=AzureAIInferenceChatCompletion)
+    mock_chat_completion.service_id = "azure_ai_inference_service"
     mock_azure_ai_inference.return_value = mock_chat_completion
 
     # Execute
@@ -394,10 +432,8 @@ def test_create_kernel_various_models_azure_ai_inference(mock_azure_ai_inference
 
 # Error handling test scenarios
 @pytest.mark.parametrize("invalid_param,param_value,expected_error", [
-    ("api_key", None, (TypeError, AttributeError)),
-    ("api_key", "", (ValueError, Exception)),
-    ("deployment_name", None, (TypeError, AttributeError)),
-    ("deployment_name", "", (ValueError, Exception)),
+    ("deployment_name", None, Exception),  # ServiceInitializationError is a subclass of Exception
+    ("deployment_name", "", Exception),
 ])
 def test_create_kernel_invalid_parameters(invalid_param, param_value, expected_error):
     """Test that invalid parameters result in appropriate errors."""

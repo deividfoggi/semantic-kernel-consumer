@@ -14,6 +14,9 @@ from prompt_processor import PromptProcessor
 from semantic_kernel.functions import KernelArguments
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
 
+# Enable async testing
+pytest_plugins = ('pytest_asyncio',)
+
 
 class TestPromptProcessor:
     """Test suite for PromptProcessor class."""
