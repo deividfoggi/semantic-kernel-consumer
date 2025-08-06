@@ -3,3 +3,4 @@ __pycache__
 .venv
 __azurite*
 __blobstorage__
+.pytest_cache
