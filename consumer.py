@@ -3,6 +3,8 @@ import time
 import dotenv
 import asyncio
 import logging
+import signal
+import sys
 from azure.servicebus import ServiceBusMessage
 from azure.servicebus.aio import ServiceBusClient as AsyncServiceBusClient
 from prompt_processor import PromptProcessor
@@ -24,6 +26,10 @@ logger.addHandler(console_handler)
 SERVICE_BUS_CONNECTION_STR = os.getenv('SERVICE_BUS_CONNECTION_STR')
 QUEUE_NAME = os.getenv('SERVICE_BUS_QUEUE_NAME')
 BATCH_SIZE = 10  # Number of messages to receive in a batch
+
+# Graceful shutdown configuration
+SHUTDOWN_TIMEOUT = int(os.getenv('SHUTDOWN_TIMEOUT', '30'))  # seconds
+shutdown_event = asyncio.Event()
 
 def validate_environment_variables():
     """
@@ -56,6 +62,22 @@ try:
 except ValueError as e:
     logger.critical(f"Environment validation failed: {e}")
     raise
+
+def setup_signal_handlers():
+    """
+    Setup signal handlers for graceful shutdown.
+    """
+    def signal_handler(signum, frame):
+        signal_name = signal.Signals(signum).name
+        logger.info(f"Received {signal_name} signal, initiating graceful shutdown...")
+        shutdown_event.set()
+    
+    # Handle SIGTERM (Docker/Kubernetes stop)
+    signal.signal(signal.SIGTERM, signal_handler)
+    # Handle SIGINT (Ctrl+C)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    logger.info("Signal handlers configured for graceful shutdown")
 
 async def safe_abandon_message(receiver, message):
     """
@@ -138,6 +160,55 @@ async def wait_for_available_slot(tasks, max_concurrent_tasks):
     
     return pending
 
+async def graceful_shutdown_tasks(tasks, timeout=SHUTDOWN_TIMEOUT):
+    """
+    Gracefully shutdown all running tasks within the specified timeout.
+    
+    Args:
+        tasks: Set of asyncio tasks to shutdown
+        timeout: Maximum time to wait for tasks to complete (seconds)
+    
+    Returns:
+        bool: True if all tasks completed gracefully, False if timeout occurred
+    """
+    if not tasks:
+        logger.info("No tasks to shutdown")
+        return True
+    
+    logger.info(f"Gracefully shutting down {len(tasks)} tasks (timeout: {timeout}s)")
+    
+    try:
+        # Wait for all tasks to complete within timeout
+        done, pending = await asyncio.wait(tasks, timeout=timeout, return_when=asyncio.ALL_COMPLETED)
+        
+        # Handle completed tasks
+        for task in done:
+            try:
+                await task
+                logger.debug("Task completed successfully during shutdown")
+            except Exception as task_error:
+                logger.warning(f"Task completed with error during shutdown: {task_error}")
+        
+        # Handle tasks that didn't complete in time
+        if pending:
+            logger.warning(f"{len(pending)} tasks did not complete within {timeout}s, cancelling them")
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    logger.debug("Task cancelled successfully")
+                except Exception as task_error:
+                    logger.warning(f"Error during task cancellation: {task_error}")
+            return False
+        else:
+            logger.info("All tasks completed gracefully")
+            return True
+            
+    except Exception as shutdown_error:
+        logger.error(f"Error during graceful shutdown: {shutdown_error}")
+        return False
+
 async def run_service_bus_processor_async():
     # Use validated environment variables
     model_name = env_vars['AI_MODEL_NAME']
@@ -150,8 +221,9 @@ async def run_service_bus_processor_async():
     max_concurrent_tasks = 10
     
     logger.info(f"Starting Service Bus processor with model: {model_name}")
+    logger.info(f"Graceful shutdown timeout: {SHUTDOWN_TIMEOUT}s")
     
-    while retry_count <= max_retries:
+    while retry_count <= max_retries and not shutdown_event.is_set():
         try:
             async with AsyncServiceBusClient.from_connection_string(SERVICE_BUS_CONNECTION_STR) as client:
                 receiver = client.get_queue_receiver(queue_name=QUEUE_NAME)
@@ -160,7 +232,7 @@ async def run_service_bus_processor_async():
                     retry_count = 0
                     tasks = set()
                     
-                    while True:
+                    while not shutdown_event.is_set():
                         try:
                             messages = await receiver.receive_messages(max_message_count=BATCH_SIZE, max_wait_time=5)
                             if not messages:
@@ -169,7 +241,21 @@ async def run_service_bus_processor_async():
                                 tasks = await cleanup_completed_tasks(tasks)
                                 continue
                             
+                            # Check for shutdown signal before processing new messages
+                            if shutdown_event.is_set():
+                                logger.info("Shutdown signal received, stopping message processing")
+                                # Abandon all unprocessed messages
+                                for msg in messages:
+                                    await safe_abandon_message(receiver, msg)
+                                break
+                            
                             for msg in messages:
+                                # Check shutdown signal before processing each message
+                                if shutdown_event.is_set():
+                                    logger.info("Shutdown signal received, abandoning remaining messages")
+                                    await safe_abandon_message(receiver, msg)
+                                    continue
+                                
                                 # Wait for available slot if we're at the limit
                                 tasks = await wait_for_available_slot(tasks, max_concurrent_tasks)
                                 
@@ -183,21 +269,57 @@ async def run_service_bus_processor_async():
                             tasks = await cleanup_completed_tasks(tasks)
                             
                         except Exception as receive_error:
+                            if shutdown_event.is_set():
+                                logger.info("Shutdown in progress, skipping error recovery")
+                                break
                             logger.error(f"Error receiving messages: {receive_error}")
                             await asyncio.sleep(5)
                             # Clean up tasks during error recovery
                             tasks = await cleanup_completed_tasks(tasks)
-                            
+                    
+                    # Graceful shutdown of remaining tasks
+                    if tasks:
+                        logger.info("Initiating graceful shutdown of in-flight tasks")
+                        graceful_complete = await graceful_shutdown_tasks(tasks)
+                        if graceful_complete:
+                            logger.info("All in-flight tasks completed successfully")
+                        else:
+                            logger.warning("Some tasks were forcefully cancelled during shutdown")
+                    
+                    logger.info("Service Bus consumer shutdown completed")
+                    return  # Exit the retry loop on graceful shutdown
+                    
         except Exception as connection_error:
+            if shutdown_event.is_set():
+                logger.info("Shutdown signal received during connection error, stopping retries")
+                break
+                
             retry_count += 1
             logger.error(f"Service Bus connection failed (attempt {retry_count}/{max_retries + 1}): {connection_error}")
             if retry_count <= max_retries:
                 wait_time = min(30, 2 ** retry_count)
                 logger.info(f"Retrying connection in {wait_time} seconds...")
-                await asyncio.sleep(wait_time)
+                
+                # Wait with shutdown check
+                for _ in range(wait_time):
+                    if shutdown_event.is_set():
+                        logger.info("Shutdown signal received during retry wait, aborting")
+                        return
+                    await asyncio.sleep(1)
             else:
                 logger.critical("Max retries exceeded. Service Bus consumer stopping.")
                 raise
 
 def run_service_bus_processor():
-    asyncio.run(run_service_bus_processor_async())
+    # Setup signal handlers before starting
+    setup_signal_handlers()
+    
+    try:
+        asyncio.run(run_service_bus_processor_async())
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received")
+    except Exception as e:
+        logger.error(f"Application error: {e}")
+        sys.exit(1)
+    finally:
+        logger.info("Service Bus consumer stopped")
