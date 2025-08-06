@@ -7,15 +7,22 @@ This project demonstrates a Python-based consumer for Azure Service Bus and Azur
 - Retrieves prompt templates from Azure Blob Storage (using local emulator or Azure)
 - Uses environment variables for configuration and secrets
 - Consistent logging across all modules
-- **Flexible AI Service Injection:** Easily swap or configure the AI service used by Semantic Kernel (see below)
+- **Flexible AI Service Injection:** Easily swap or configure the AI service used by Semantic Kernel (supports Azure OpenAI and Azure AI Inference)
+- **Essay Evaluation Plugin:** Built-in plugin for evaluating essays with scoring and approval/rejection logic
+- **Graceful Shutdown:** Handles shutdown signals properly with configurable timeout
+- **Concurrent Processing:** Supports concurrent message processing with configurable limits
+- **Robust Error Handling:** Comprehensive error handling and retry logic
 
 ## Service Injection in Semantic Kernel
-This project uses a flexible approach to inject AI services into Semantic Kernel. The `PromptProcessor` class receives deployment and authentication details, and internally creates an `AzureOpenAIProvider` (or any compatible provider). This provider is injected into the `KernelWrapper`, which then configures the Semantic Kernel instance. This design allows you to:
-- Swap out the AI provider (e.g., use Azure OpenAI, OpenAI, or another compatible service)
-- Pass different deployment names, API keys, or endpoints via environment variables or arguments
+This project uses a flexible approach to inject AI services into Semantic Kernel through the `KernelFactory` class. The `PromptProcessor` receives deployment and authentication details, and the `KernelFactory` creates the appropriate AI provider based on the `ProviderType` enum (currently supporting `AZURE_OPENAI` and `AZURE_AI_INFERENCE`). The provider is then injected into the kernel instance. This design allows you to:
+- Swap out the AI provider (e.g., use Azure OpenAI or Azure AI Inference)
+- Pass different deployment names, API keys, endpoints, or API versions via environment variables
 - Extend the project to support additional AI services with minimal code changes
+- Use different AI services for different use cases
 
-See `prompt_processor.py` and `kernel.py` for details on how providers are injected and used.
+The system also includes a `PostEvaluation` plugin that provides additional evaluation capabilities for essay scoring and approval/rejection logic.
+
+See `prompt_processor.py`, `kernel.py`, and `post_evaluation.py` for details on how providers and plugins are injected and used.
 
 ## Prerequisites
 - Python 3.8+
@@ -35,35 +42,38 @@ Set the following environment variables before running the project:
 - `PROMPT_TEMPLATE_BLOB_NAME` (Blob name for the prompt template)
 - `SERVICE_BUS_CONNECTION_STR` (Service Bus connection string)
 - `SERVICE_BUS_QUEUE_NAME` (Service Bus queue name)
-- `AI_MODEL_NAME` (OpenAI model deployment name)
-- `AI_API_KEY` (OpenAI API key)
-- `AI_ENDPOINT` (OpenAI endpoint, if required)
+- `AI_MODEL_NAME` (AI model deployment name)
+- `AI_API_KEY` (AI API key)
+- `AI_ENDPOINT` (AI endpoint)
+- `API_VERSION` (AI API version)
+- `SHUTDOWN_TIMEOUT` (Optional: Graceful shutdown timeout in seconds, default: 30)
 
 ## Usage
 
 ### 1. Start Local Emulators
-- **Start Azurite for Blob Storage:**
- - The easiest way is to use the Azurite extension in VS Code and click the "[Azurite Blob Service]" in the status bar
+ - The easiest way to emulate a local blob storage is to use the Azurite extension in VS Code and click the "[Azurite Blob Service]" in the status bar
  - Start your Service Bus emulator (a Docker container) or use Azure Service Bus Explorer for local development.
  - Use the Azure Storage Explorer to connect to your blob storage local emulator, create a container named "prompt_templates", create a new file essay.yaml, paste the following content and upload it into the container:
 
-```
+```yaml
 name: EvaluateEssay
 template: |
   <message role="system">
-    You are an expert essay evaluator. Your task is to evaluate the quality of an essay based on the provided criteria.
+    Você é um avaliador de redações especialista. Sua tarefa é avaliar a qualidade de uma redação com base nos critérios fornecidos.
   </message>
   <message role="user">
-    Evaluate the following essay based on each of the skills provided:
+    Avalie a seguinte redação com base em cada uma das habilidades fornecidas:
       {{ skills_list }}
-    For each skill, provide a result in the format:
+    Para cada habilidade, forneça um resultado no formato:
     {
-      "skill": "<skill_name>",
-      "comments": "<evaluation_result>",
-      "result"
+      "habilidade": "<nome_da_habilidade>",
+      "comentários": "<resultado_da_avaliação>",
+      "nota": "<nota>"
     }
-    This is the essay to evaluate:
-    {{essay}}
+    Esta é a redação a ser avaliada:
+      {{ essay }}
+
+    SEMPRE SOMENTE AO FINAL da avaliação, você deve usar os resultados de cada habilidade avaliada na função evaluate_skills, e então adicione o resultado da avaliação ao resultado final exatamente como ele é retornado.
   </message>
 template_format: handlebars
 description: An essay evaluation prompt.
@@ -77,7 +87,7 @@ input_variables:
 output_variable:
   evaluation: The evaluation result.
 execution_settings:
-  service1:  
+  service1:
     model_id: gpt-4o
     temperature: 0.6
   service2:
@@ -95,26 +105,39 @@ python main.py
 ```
 This will listen for messages on the configured Service Bus queue and process them using the prompt template from Blob Storage.
 
-### 3. Send Test Messages
-To emulate sending messages to the queue (for local testing):
+### 3. Test the Consumer
+The consumer will automatically start processing messages when you run:
 ```sh
-python local_test/send_message.py
+python main.py
 ```
-This script sends a sample message to the Service Bus queue for processing.
+
+To test the system, you can send messages to your Service Bus queue using Azure Service Bus Explorer, Azure CLI, or any Service Bus client. The expected message format is:
+```json
+{
+  "skills_list": ["skill1", "skill2", "skill3"],
+  "essay": "Your essay text here..."
+}
+```
 
 ## Project Structure
 - `main.py` — Entry point; runs the message consumer
-- `receive_message.py` — Handles Service Bus message processing
-- `prompt_processor.py` — Processes messages using prompt templates and injects AI services into Semantic Kernel
-- `kernel.py` — Handles AI provider injection and Semantic Kernel configuration
-- `blob_client.py` — Handles Blob Storage access
-- `local_test/send_message.py` — Utility to send test messages
+- `consumer.py` — Handles Service Bus message processing with async support and graceful shutdown
+- `prompt_processor.py` — Processes messages using prompt templates and manages AI service injection
+- `kernel.py` — Handles AI provider injection and Semantic Kernel configuration via KernelFactory
+- `blob_client.py` — Handles Blob Storage access for prompt templates
+- `post_evaluation.py` — Plugin for essay evaluation, scoring, and approval/rejection logic
+- `tests/` — Unit tests for all modules
+- `essay.yaml` — Sample prompt template (in Portuguese) with evaluation logic
 
 ## Notes
 - Ensure all required environment variables are set before running the scripts.
 - The project is designed to work both locally (with emulators) and in Azure.
 - Logging output will appear in the console for all scripts.
-- You can easily extend or swap the AI service used by modifying the provider injection in `prompt_processor.py` and `kernel.py`.
+- The system supports graceful shutdown via SIGTERM/SIGINT signals with configurable timeout.
+- Concurrent message processing is supported with a default limit of 10 concurrent tasks.
+- The essay evaluation includes both individual skill assessment and overall approval/rejection logic.
+- You can easily extend or swap the AI service used by modifying the provider injection in `kernel.py`.
+- The PostEvaluation plugin can be extended to support additional evaluation criteria and logic.
 
 ---
 
