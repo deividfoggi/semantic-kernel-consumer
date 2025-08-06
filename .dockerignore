@@ -1,0 +1,68 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.pytest_cache
+nosetests.xml
+.cache
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+__azurite*
+__blobstorage__
+*.log
+logs/
+tmp/
+
+# Documentation
+README.md
+*.md
+
+# Tests (exclude from production image)
+tests/
+pytest.ini
+
+# Development files
+.env.example
+docker-compose.yml
+docker-compose.*.yml
+
+# Azure emulator files
+__azurite_db_blob__.json
+__azurite_db_blob_extent__.json

@@ -25,6 +25,8 @@ The system also includes a `PostEvaluation` plugin that provides additional eval
 See `prompt_processor.py`, `kernel.py`, and `post_evaluation.py` for details on how providers and plugins are injected and used.
 
 ## Prerequisites
+
+### Local Development
 - Python 3.8+
 - [Azurite](https://github.com/Azure/Azurite) (for local Blob Storage emulation)
 - [Azure Service Bus Emulator](https://github.com/Azure/azure-service-bus) (for local Service Bus emulation)
@@ -32,6 +34,15 @@ See `prompt_processor.py`, `kernel.py`, and `post_evaluation.py` for details on 
   ```sh
   pip install -r requirements.txt
   ```
+
+### Docker Development
+- Docker (for containerized deployment)
+- Docker Compose (optional, for multi-service orchestration)
+
+The project includes:
+- `Dockerfile` - Single-stage build optimized for Linux x64
+- `.dockerignore` - Excludes unnecessary files from the Docker build context
+- Environment-based configuration for both local and containerized deployments
 
 ## Environment Variables
 Set the following environment variables before running the project:
@@ -50,7 +61,9 @@ Set the following environment variables before running the project:
 
 ## Usage
 
-### 1. Start Local Emulators
+### Option 1: Local Python Development
+
+#### 1. Start Local Emulators
  - The easiest way to emulate a local blob storage is to use the Azurite extension in VS Code and click the "[Azurite Blob Service]" in the status bar
  - Start your Service Bus emulator (a Docker container) or use Azure Service Bus Explorer for local development.
  - Use the Azure Storage Explorer to connect to your blob storage local emulator, create a container named "prompt_templates", create a new file essay.yaml, paste the following content and upload it into the container:
@@ -97,21 +110,50 @@ execution_settings:
     temperature: 0.5
 ```
 
-
-### 2. Run the Consumer
+#### 2. Run the Consumer
 To start the message consumer:
 ```sh
 python main.py
 ```
 This will listen for messages on the configured Service Bus queue and process them using the prompt template from Blob Storage.
 
-### 3. Test the Consumer
+#### 3. Test the Consumer
 The consumer will automatically start processing messages when you run:
 ```sh
 python main.py
 ```
 
-To test the system, you can send messages to your Service Bus queue using Azure Service Bus Explorer, Azure CLI, or any Service Bus client. The expected message format is:
+### Option 2: Docker Development
+
+#### 1. Build the Docker Image
+```sh
+# Build the image
+docker build -t semantic-kernel-consumer:latest .
+```
+
+#### 2. Run with Docker
+```sh
+# Run with environment file
+docker run --env-file .env semantic-kernel-consumer:latest
+
+# Or run with Azure services (production-like)
+docker run -e SERVICE_BUS_CONNECTION_STR="your-azure-servicebus-connection" \
+           -e AZURE_STORAGE_ACCOUNT_URL="https://yourstorageaccount.blob.core.windows.net" \
+           -e AI_ENDPOINT="https://your-openai.openai.azure.com/" \
+           -e AI_API_KEY="your-api-key" \
+           -e AI_MODEL_NAME="gpt-4o" \
+           -e API_VERSION="2024-02-01" \
+           -e PROMPT_TEMPLATE_CONTAINER_NAME="prompt-templates" \
+           -e PROMPT_TEMPLATE_BLOB_NAME="essay.yaml" \
+           -e SERVICE_BUS_QUEUE_NAME="essays" \
+           semantic-kernel-consumer:latest
+```
+
+#### 3. Test with Docker
+The Docker container will automatically start processing messages from your configured Service Bus queue.
+
+### Message Format
+To test the system (both local and Docker), you can send messages to your Service Bus queue using Azure Service Bus Explorer, Azure CLI, or any Service Bus client. The expected message format is:
 ```json
 {
   "skills_list": ["skill1", "skill2", "skill3"],
@@ -130,14 +172,17 @@ To test the system, you can send messages to your Service Bus queue using Azure 
 - `essay.yaml` — Sample prompt template (in Portuguese) with evaluation logic
 
 ## Notes
-- Ensure all required environment variables are set before running the scripts.
+- Ensure all required environment variables are set before running the scripts (locally or in Docker).
 - The project is designed to work both locally (with emulators) and in Azure.
-- Logging output will appear in the console for all scripts.
+- **Docker deployment**: The included Dockerfile provides a production-ready containerized version optimized for Linux x64.
+- **Environment configuration**: Use `.env` files for Docker runs or set environment variables directly.
+- Logging output will appear in the console for all scripts (both local and containerized).
 - The system supports graceful shutdown via SIGTERM/SIGINT signals with configurable timeout.
 - Concurrent message processing is supported with a default limit of 10 concurrent tasks.
 - The essay evaluation includes both individual skill assessment and overall approval/rejection logic.
 - You can easily extend or swap the AI service used by modifying the provider injection in `kernel.py`.
 - The PostEvaluation plugin can be extended to support additional evaluation criteria and logic.
+- **Container security**: Docker image runs as non-root user and includes health checks for monitoring.
 
 ---
 
