@@ -2,6 +2,8 @@ import os
 import yaml
 import logging
 import json
+import gc
+import asyncio
 from semantic_kernel.functions import KernelArguments
 from semantic_kernel.connectors.ai.prompt_execution_settings import PromptExecutionSettings
 from semantic_kernel.connectors.ai.function_choice_behavior import FunctionChoiceBehavior
@@ -75,3 +77,43 @@ class PromptProcessor:
 
         response = await self.kernel.invoke(semantic_function, arguments)
         return response
+
+    async def cleanup(self):
+        """
+        Clean up resources by forcing cleanup of aiohttp sessions.
+        This approach doesn't rely on internal Kernel APIs.
+        """
+        try:
+            # Import here to avoid import issues if aiohttp isn't available
+            import aiohttp
+            
+            # Force cleanup of any unclosed aiohttp ClientSession objects
+            # This is a more aggressive approach that scans all objects
+            for obj in gc.get_objects():
+                if isinstance(obj, aiohttp.ClientSession):
+                    if not obj.closed:
+                        try:
+                            await obj.close()
+                            logger.debug("Closed unclosed aiohttp ClientSession")
+                        except Exception as e:
+                            logger.debug(f"Error closing aiohttp session: {e}")
+            
+            # Clear kernel reference and force garbage collection
+            self.kernel = None
+            gc.collect()
+            
+            logger.debug("PromptProcessor cleanup completed")
+            
+        except ImportError:
+            # aiohttp not available, just clear kernel reference
+            self.kernel = None
+            gc.collect()
+            logger.debug("PromptProcessor cleanup completed (no aiohttp cleanup)")
+        except Exception as cleanup_error:
+            logger.warning(f"Error during PromptProcessor cleanup: {cleanup_error}")
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.cleanup()

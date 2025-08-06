@@ -110,11 +110,12 @@ async def process_message_async(message, receiver, model_name, api_key, endpoint
         await safe_abandon_message(receiver, message)
         return
 
+    # Use context manager to ensure proper cleanup
     try:
-        prompt_processor = PromptProcessor(model_name, api_key, endpoint, api_version)
-        result = await prompt_processor.process_payload(content)
-        logger.info(f"Evaluation result: {result}")
-        await safe_complete_message(receiver, message)
+        async with PromptProcessor(model_name, api_key, endpoint, api_version) as prompt_processor:
+            result = await prompt_processor.process_payload(content)
+            logger.info(f"Evaluation result: {result}")
+            await safe_complete_message(receiver, message)
     except Exception as processing_error:
         logger.error(f"Failed to process message: {processing_error}")
         await safe_abandon_message(receiver, message)
