@@ -1,0 +1,23 @@
+# Azure Workload Identity Configuration
+# This file contains the necessary resources for Azure Workload Identity
+# Uncomment and configure if you want to use Azure Workload Identity instead of connection strings
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: semantic-kernel-consumer-workload-identity
+  namespace: semantic-kernel-consumer
+  labels:
+    app: semantic-kernel-consumer
+  annotations:
+    azure.workload.identity/client-id: "YOUR_MANAGED_IDENTITY_CLIENT_ID"
+    azure.workload.identity/tenant-id: "YOUR_AZURE_TENANT_ID"
+automountServiceAccountToken: true
+---
+# Federated Identity Credential needs to be created via Azure CLI or Portal
+# az identity federated-credential create \
+#   --name "semantic-kernel-consumer-federated-credential" \
+#   --identity-name "semantic-kernel-consumer-identity" \
+#   --resource-group "your-resource-group" \
+#   --issuer "https://your-aks-cluster-oidc-issuer-url" \
+#   --subject "system:serviceaccount:semantic-kernel-consumer:semantic-kernel-consumer-workload-identity"

@@ -1,5 +1,5 @@
-# Single-stage build for semantic-kernel-consumer (Linux x64 optimized)
-FROM --platform=linux/amd64 python:3.12-slim
+# Single-stage build for semantic-kernel-consumer
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
