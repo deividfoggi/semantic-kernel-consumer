@@ -16,8 +16,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user for security
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Create non-root user for security with explicit UID/GID to match K8s security context
+RUN groupadd -g 1000 appuser && useradd -u 1000 -g 1000 -s /bin/bash appuser
 
 # Create application directory
 WORKDIR /app
@@ -27,12 +27,17 @@ COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel && \
     pip install -r requirements.txt
 
-# Copy application code
-COPY --chown=appuser:appuser . .
+# Copy application code (excluding cache files)
+COPY --chown=1000:1000 . .
+
+# Remove any Python cache files that might have been copied and ensure clean state
+RUN find /app -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app -name "*.pyc" -delete 2>/dev/null || true && \
+    find /app -name "*.pyo" -delete 2>/dev/null || true
 
 # Create directories for temporary files and logs
 RUN mkdir -p /app/logs /app/tmp && \
-    chown -R appuser:appuser /app
+    chown -R 1000:1000 /app
 
 # Switch to non-root user
 USER appuser

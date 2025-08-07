@@ -14,7 +14,7 @@ metadata:
     app: semantic-kernel-consumer
     version: "0.1"
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -37,38 +37,55 @@ spec:
         fsGroup: 1000
       containers:
       - name: semantic-kernel-consumer
-        image: genaigateway.azurecr.io/semantic-kernel-consumer:0.1
+        image: genaigateway.azurecr.io/semantic-kernel-consumer:0.3
         imagePullPolicy: IfNotPresent
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
         - name: PYTHONDONTWRITEBYTECODE
           value: "1"
+        - name: PYTHONPYCACHEPREFIX
+          value: "/tmp/__pycache__"
         - name: SHUTDOWN_TIMEOUT
           value: "30"
-        # Azure Service Bus Configuration
-        - name: AZURE_SERVICE_BUS_CONNECTION_STRING
+        # Azure Service Bus Configuration (mapped to expected names)
+        - name: SERVICE_BUS_CONNECTION_STR
           valueFrom:
             secretKeyRef:
               name: azure-secrets
               key: service-bus-connection-string
+        - name: SERVICE_BUS_QUEUE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: azure-config
+              key: service-bus-queue-name
         # Azure Storage Configuration
         - name: AZURE_STORAGE_CONNECTION_STRING
           valueFrom:
             secretKeyRef:
               name: azure-secrets
               key: storage-connection-string
-        # Azure OpenAI Configuration
-        - name: AZURE_OPENAI_ENDPOINT
+        # Azure OpenAI Configuration (mapped to expected names)
+        - name: AI_ENDPOINT
           valueFrom:
             configMapKeyRef:
               name: azure-config
               key: openai-endpoint
-        - name: AZURE_OPENAI_API_KEY
+        - name: AI_API_KEY
           valueFrom:
             secretKeyRef:
               name: azure-secrets
               key: openai-api-key
+        - name: AI_MODEL_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: azure-config
+              key: ai-model-name
+        - name: API_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: azure-config
+              key: api-version
         # Managed Identity (if using Azure Workload Identity)
         - name: AZURE_CLIENT_ID
           valueFrom:
@@ -149,8 +166,16 @@ metadata:
   labels:
     app: semantic-kernel-consumer
 data:
-  openai-endpoint: "https://your-openai-resource.openai.azure.com/"
-  client-id: "your-managed-identity-client-id"
+  # Azure OpenAI Configuration
+  openai-endpoint: "https://genai-gateway.cognitiveservices.azure.com/openai/deployments/gpt-4.1"
+  ai-model-name: "gpt-4.1"  # Replace with your actual deployment name
+  api-version: "2024-12-01-preview"  # Replace with your preferred API version
+  
+  # Azure Service Bus Configuration
+  service-bus-queue-name: "essay-evaluation-queue"  # Replace with your actual queue name
+  
+  # Managed Identity Configuration
+  client-id: "3bb6eaaf-4f1c-4ae0-a6fc-7d7bf0c8a474"
 ---
 apiVersion: v1
 kind: Secret
@@ -162,9 +187,9 @@ metadata:
 type: Opaque
 data:
   # Base64 encoded values - replace with your actual encoded secrets
-  service-bus-connection-string: "RW5kcG9pbnQ9c2I6Ly95b3VyLXNlcnZpY2UtYnVzLm5hbWVzcGFjZS53aW5kb3dzLm5ldC8="
-  storage-connection-string: "RGVmYXVsdEVuZHBvaW50c1Byb3RvY29sPWh0dHBzO0FjY291bnROYW1lPXlvdXJzdG9yYWdlYWNjb3VudA=="
-  openai-api-key: "eW91ci1vcGVuYWktYXBpLWtleQ=="
+  service-bus-connection-string: "RW5kcG9pbnQ9c2I6Ly9nZW5haS1nYXRld2F5LnNlcnZpY2VidXMud2luZG93cy5uZXQvO1NoYXJlZEFjY2Vzc0tleU5hbWU9cmVhZDtTaGFyZWRBY2Nlc3NLZXk9NGZINUJxd1lGWmQ5N0J4R2FxaWk0NHRpd2xpRkxxTE1qK0FTYktRcnF5QT0="
+  storage-connection-string: "RGVmYXVsdEVuZHBvaW50c1Byb3RvY29sPWh0dHBzO0FjY291bnROYW1lPWdlbmFpZ2F0ZXdheTtBY2NvdW50S2V5PUpwT1YxTG9MUHhWcXhyR3hvRSswWHRKejBkVlBhVTBzNVRISVpzZ0pnUkxYNlQyd2pFSmJ1YWVUMlVZWTFXNHhQQWJNTGgxSlNFWk8rQVN0cXE4dUFRPT07RW5kcG9pbnRTdWZmaXg9Y29yZS53aW5kb3dzLm5ldA=="
+  openai-api-key: "QzNtNDR2bTk3SjhsTlVVVmphVzFCMXFQQmVqNTc3bU5wRDJhRVgyRzlQbEdmM3lOQWdZWkpRUUo5OUJIQUNZZUJqRlhKM3czQUFBQUFDT0dTVTRR"
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

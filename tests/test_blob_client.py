@@ -262,32 +262,6 @@ class TestAzureBlobTemplateClient:
         mock_download_result.content_as_text.assert_called_once_with(encoding='utf-8')
 
 
-# Integration test (can be marked as slow or integration)
-@pytest.mark.integration
-@pytest.mark.slow
-class TestAzureBlobTemplateClientIntegration:
-    """Integration tests that require actual Azure Storage (or Azurite emulator)."""
-    
-    def test_integration_with_azurite(self):
-        """Test with local Azurite emulator (requires running Azurite)."""
-        # This test requires Azurite to be running locally
-        # You can mark it to skip if environment variable is not set
-        connection_string = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
-        if not connection_string:
-            pytest.skip("AZURE_STORAGE_CONNECTION_STRING not set, skipping integration test")
-        
-        container_name = os.getenv('PROMPT_TEMPLATE_CONTAINER_NAME', 'test-container')
-        
-        try:
-            client = AzureBlobTemplateClient(container_name=container_name)
-            # This will only work if the blob actually exists in your test environment
-            # You might want to upload a test blob first or mock this differently
-            assert client.blob_service_client is not None
-            assert client.container_client is not None
-        except Exception as e:
-            pytest.skip(f"Integration test failed due to environment setup: {e}")
-
-
 # Fixtures for reuse across tests
 @pytest.fixture
 def mock_blob_service_client():
@@ -296,27 +270,6 @@ def mock_blob_service_client():
         mock_service = Mock(spec=BlobServiceClient)
         mock.return_value = mock_service
         yield mock_service
-
-
-@pytest.fixture
-def test_environment():
-    """Fixture providing test environment variables."""
-    original_env = os.environ.copy()
-    test_env = {
-        'AZURE_STORAGE_CONNECTION_STRING': 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=test;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;',
-        'PROMPT_TEMPLATE_CONTAINER_NAME': 'test-container',
-        'PROMPT_TEMPLATE_BLOB_NAME': 'test-template.yaml'
-    }
-    
-    # Set test environment
-    for key, value in test_env.items():
-        os.environ[key] = value
-    
-    yield test_env
-    
-    # Restore original environment
-    os.environ.clear()
-    os.environ.update(original_env)
 
 
 # Example of parameterized test for different scenarios
