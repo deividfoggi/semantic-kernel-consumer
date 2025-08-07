@@ -10,8 +10,8 @@ metadata:
   labels:
     app: semantic-kernel-consumer
   annotations:
-    azure.workload.identity/client-id: "YOUR_MANAGED_IDENTITY_CLIENT_ID"
-    azure.workload.identity/tenant-id: "YOUR_AZURE_TENANT_ID"
+    azure.workload.identity/client-id: "3bb6eaaf-4f1c-4ae0-a6fc-7d7bf0c8a474"
+    azure.workload.identity/tenant-id: "61a8746e-424d-4105-a054-b38573d6e54a"
 automountServiceAccountToken: true
 ---
 # Federated Identity Credential needs to be created via Azure CLI or Portal

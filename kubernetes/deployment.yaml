@@ -39,10 +39,6 @@ spec:
       - name: semantic-kernel-consumer
         image: genaigateway.azurecr.io/semantic-kernel-consumer:0.1
         imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 8080
-          name: http
-          protocol: TCP
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
@@ -134,23 +130,6 @@ spec:
         effect: "NoSchedule"
 ---
 apiVersion: v1
-kind: Service
-metadata:
-  name: semantic-kernel-consumer
-  namespace: semantic-kernel-consumer
-  labels:
-    app: semantic-kernel-consumer
-spec:
-  type: ClusterIP
-  ports:
-  - port: 80
-    targetPort: 8080
-    protocol: TCP
-    name: http
-  selector:
-    app: semantic-kernel-consumer
----
-apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: semantic-kernel-consumer-sa
@@ -197,21 +176,16 @@ spec:
     matchLabels:
       app: semantic-kernel-consumer
   policyTypes:
-  - Ingress
   - Egress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: ingress-nginx
-    ports:
-    - protocol: TCP
-      port: 8080
   egress:
   - to: []
     ports:
     - protocol: TCP
       port: 443  # HTTPS for Azure services
+    - protocol: TCP
+      port: 5671 # Service Bus AMQP over SSL
+    - protocol: TCP
+      port: 5672 # Service Bus AMQP
     - protocol: TCP
       port: 53   # DNS
     - protocol: UDP
